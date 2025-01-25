@@ -1,4 +1,3 @@
-<!-- src/pages/OrderDetailsPage.vue -->
 <template>
     <div class="container mt-4">
       <h2>Order Details</h2>
@@ -26,14 +25,23 @@
       <!-- Delivery, Payment, and Time Slot selection -->
       <div class="mb-3">
         <label for="address" class="form-label">Delivery Location</label>
+        <!-- Google Places Autocomplete -->
         <input 
           type="text" 
           id="address" 
           class="form-control" 
-          v-model="deliveryLocation"
-          placeholder="Enter your address"
+          ref="autocomplete" 
+          placeholder="Search your address"
         />
-        <button class="btn btn-secondary mt-2" @click="autoDetectLocation">Auto-Detect Location</button>
+        <small class="form-text text-muted">
+          If your address is not found, you can edit it manually below.
+        </small>
+        <!-- Manual Address Entry -->
+        <textarea 
+          class="form-control mt-2" 
+          v-model="deliveryLocation" 
+          placeholder="Enter your address manually if needed"
+        ></textarea>
       </div>
   
       <div class="mb-3">
@@ -108,7 +116,6 @@
       },
     },
     async created() {
-      // Optionally fetch available time slots
       try {
         const response = await axios.get('/api/delivery-slots');
         this.timeSlots = response.data;
@@ -117,16 +124,23 @@
       }
     },
     methods: {
-      async autoDetectLocation() {
-        if (navigator.geolocation) {
-          navigator.geolocation.getCurrentPosition(position => {
-            // In real scenario, reverse-geocode (Google Maps API) or just store lat/lng
-            const { latitude, longitude } = position.coords;
-            this.deliveryLocation = `Lat: ${latitude}, Lng: ${longitude}`;
-          }, error => {
-            alert('Geolocation not permitted. Please enter address manually.');
-          });
-        }
+      initializeAutocomplete() {
+        const autocomplete = new google.maps.places.Autocomplete(
+          this.$refs.autocomplete,
+          {
+            types: ['geocode'],
+            componentRestrictions: { country: 'mx' },
+          }
+        );
+  
+        autocomplete.addListener('place_changed', () => {
+          const place = autocomplete.getPlace();
+          if (place.formatted_address) {
+            this.deliveryLocation = place.formatted_address;
+          } else {
+            alert('Please select a valid address from the dropdown.');
+          }
+        });
       },
       async placeOrder() {
         if (!this.cartItems.length) {
@@ -154,10 +168,7 @@
           const response = await axios.post('/api/orders', payload);
           const { orderId } = response.data;
   
-          // Clear cart
           useCartStore().clearCart();
-  
-          // Redirect to status page
           this.$router.push(`/order-status/${orderId}`);
         } catch (err) {
           this.error = 'Failed to place order. Please try again.';
@@ -167,5 +178,9 @@
         }
       },
     },
+    mounted() {
+      this.initializeAutocomplete();
+    },
   };
-  </script>  
+  </script>
+  

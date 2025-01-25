@@ -3,7 +3,7 @@
       <div class="container-fluid">
         <!-- Brand / Logo -->
         <router-link to="/" class="navbar-brand">
-          FoodBooking
+          Doña Cleo
         </router-link>
   
         <!-- Toggler button for mobile view -->

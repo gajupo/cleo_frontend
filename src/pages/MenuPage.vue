@@ -1,4 +1,3 @@
-<!-- src/pages/MenuPage.vue -->
 <template>
     <div class="container mt-4">
       <h2>Our Menus</h2>
@@ -8,7 +7,11 @@
           :key="menu.menu_id" 
           class="col-md-4 mb-3"
         >
-          <div class="card">
+          <!-- Dynamic Class for Selected Items -->
+          <div 
+            class="card" 
+            :class="{ 'bg-success text-white': isItemInCart(menu.menu_id) }"
+          >
             <img :src="menu.image_url" class="card-img-top" alt="Menu Item" />
             <div class="card-body">
               <h5>{{ menu.name }}</h5>
@@ -81,7 +84,6 @@
         const quantity = this.quantities[menu.menu_id];
         if (quantity < 1) return;
   
-        // Use Pinia cart store
         const cartStore = useCartStore();
         cartStore.addItem({
           menu_id: menu.menu_id,
@@ -90,7 +92,18 @@
           quantity,
         });
       },
+      isItemInCart(menuId) {
+        const cartStore = useCartStore();
+        return cartStore.items.some(item => item.menu_id === menuId);
+      },
     },
   };
   </script>
+  
+  <style>
+  /* Optional styles for a more visible selection */
+  .bg-success {
+    transition: background-color 0.3s ease;
+  }
+  </style>
   
