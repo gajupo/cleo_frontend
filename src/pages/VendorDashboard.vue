@@ -84,6 +84,8 @@ import axios from 'axios';
 import { useAuthStore } from '../store/auth';
 import { mapState } from 'pinia';
 
+let eventSource = null; // Keep a reference to the SSE connection
+
 export default {
   data() {
     return {
@@ -110,6 +112,17 @@ export default {
     }
 
     await this.fetchOrders();
+
+    // ============= SSE SETUP =============
+    // Open a connection to SSE only if the user is logged in
+    this.initSSEConnection();
+  },
+  beforeUnmount() {
+    // Close SSE connection when leaving this page
+    if (eventSource) {
+      eventSource.close();
+      eventSource = null;
+    }
   },
   methods: {
     async fetchOrders(status = '') {
@@ -154,6 +167,36 @@ export default {
       const authStore = useAuthStore();
       authStore.logoutVendor(); // Clear token and vendor data
       this.$router.push('/vendor/login'); // Redirect to login
+    },
+
+    // ============= SSE METHODS =============
+    initSSEConnection() {
+      // Create an EventSource to /api/vendor/orders/stream
+      eventSource = new EventSource('http://localhost:3000/api/vendor/orders/stream');
+
+      // Listen for "new_order" events
+      eventSource.addEventListener('new_order', (event) => {
+        // parse the data
+        const newOrder = JSON.parse(event.data);
+        console.log('New order event:', newOrder);
+
+        // Option 1: Just add to the front
+        this.orders.unshift({
+          order_id: newOrder.order_id,
+          total_amount: newOrder.total_amount,
+          status: newOrder.status,
+          created_at: newOrder.created_at,
+          // Include other fields as needed
+        });
+        // Also set default status selection
+        this.selectedStatus[newOrder.order_id] = newOrder.status;
+      });
+
+      // Optional: handle error events
+      eventSource.onerror = (err) => {
+        console.error('SSE connection error:', err);
+        // If needed, close and retry logic could go here
+      };
     },
   },
 };
