@@ -7,7 +7,7 @@
       <div v-else-if="order">
         <p><strong>Order ID:</strong> {{ order.order_id }}</p>
         <p><strong>Total:</strong> ${{ order.total_amount }}</p>
-        <p><strong>Status:</strong> {{ order.status }}</p>
+        <p><strong>Status:</strong> <span class="badge bg-info">{{ order.status }}</span></p>
         <p><strong>Location:</strong> {{ order.delivery_location }}</p>
         <p><strong>Delivery Time Slot:</strong> {{ deliverySlotTime }}</p>
         <hr />

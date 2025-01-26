@@ -23,7 +23,8 @@
             class="card" 
             :class="{ 'bg-success text-white': isItemInCart(menu.menu_id) }"
           >
-            <img :src="menu.image_url" class="card-img-top" alt="Menu Item" />
+          <!-- Get image from menu.image_url, it is stored in the public folder images/, the db only the name of the image -->
+            <img :src="`/images/${menu.image_url}`" class="card-img-top" alt="Menu Image" />
             <div class="card-body">
               <h5>{{ menu.name }}</h5>
               <p>{{ menu.description }}</p>
