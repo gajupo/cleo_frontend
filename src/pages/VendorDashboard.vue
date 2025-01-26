@@ -1,6 +1,6 @@
 <template>
-  <div class="container mt-4">
-    <h2>Vendor Dashboard</h2>
+  <div class="container-fluid mt-3">
+    <h2 class="mb-3 text-center">Vendor Dashboard</h2>
 
     <!-- Redirect if not logged in -->
     <div v-if="!isLoggedIn" class="alert alert-info">
@@ -8,84 +8,90 @@
     </div>
 
     <div v-else>
-      <!-- Logout Button -->
-      <div class="d-flex justify-content-between align-items-center mb-3">
-        <h5>Welcome, {{ vendorName }}</h5>
-        <button class="btn btn-danger" @click="logout">Logout</button>
+      <!-- Top row: Vendor Name & Logout -->
+      <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap">
+        <h5 class="mb-2 mb-sm-0">
+          Welcome, {{ vendorName }}
+        </h5>
+        <button class="btn btn-danger btn-sm" @click="logout">Logout</button>
       </div>
 
-      <!-- Status filter buttons -->
-      <div class="mb-3">
+      <!-- Status Filter Buttons (stack on mobile) -->
+      <div class="mb-3 d-flex flex-wrap gap-2">
         <button
           v-for="s in statuses"
           :key="s"
-          class="btn btn-outline-primary me-2"
+          class="btn btn-outline-primary btn-sm"
           @click="filterOrders(s)"
         >
           {{ s }}
         </button>
-        <button class="btn btn-outline-secondary" @click="filterOrders('')">All</button>
+        <button class="btn btn-outline-secondary btn-sm" @click="filterOrders('')">All</button>
       </div>
 
-      <!-- Orders table -->
-      <table class="table table-hover" v-if="!loading && orders.length">
-        <thead>
-          <tr>
-            <th>Order ID</th>
-            <th>Status</th>
-            <th>Total</th>
-            <th>Update Status</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          <!-- Highlight row if isNew == true -->
-          <tr
-            v-for="order in orders"
-            :key="order.order_id"
-            :class="{'bg-info text-white': order.isNew}"
-          >
-            <td>{{ order.order_id }}</td>
-            <td>{{ order.status }}</td>
-            <td>${{ order.total_amount }}</td>
-            <td>
-              <select
-                class="form-select"
-                v-model="selectedStatus[order.order_id]"
-                @change="updateOrderStatus(order.order_id)"
-              >
-                <option v-for="opt in statuses" :key="opt">{{ opt }}</option>
-              </select>
-            </td>
-            <td>
-              <div class="d-flex align-items-center">
-                <!-- View Details Button -->
-                <button
-                  class="btn btn-link me-2"
-                  @click="viewOrderDetails(order.order_id)"
-                >
-                  View Details
-                </button>
-
-                <!-- Show "Accept" button only if isNew -->
-                <button
-                  v-if="order.isNew"
-                  class="btn btn-success"
-                  @click="acceptNewOrder(order)"
-                >
-                  Accept
-                </button>
-              </div>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-
-      <div v-else-if="loading">
+      <!-- Conditionally Render Orders Table or Loading/No Results -->
+      <div v-if="loading" class="text-center">
         <p>Loading orders...</p>
       </div>
+      <div v-else-if="orders.length">
+        <!-- Make table scrollable horizontally on small screens -->
+        <div class="table-responsive">
+          <table class="table table-hover table-sm align-middle">
+            <thead>
+              <tr>
+                <th>Order ID</th>
+                <th>Status</th>
+                <th>Total</th>
+                <th>Update Status</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <!-- Highlight row if isNew == true -->
+              <tr
+                v-for="order in orders"
+                :key="order.order_id"
+                :class="{'bg-info text-white': order.isNew}"
+              >
+                <td>{{ order.order_id }}</td>
+                <td>{{ order.status }}</td>
+                <td>${{ order.total_amount }}</td>
+                <td>
+                  <select
+                    class="form-select form-select-sm"
+                    v-model="selectedStatus[order.order_id]"
+                    @change="updateOrderStatus(order.order_id)"
+                  >
+                    <option v-for="opt in statuses" :key="opt">{{ opt }}</option>
+                  </select>
+                </td>
+                <td>
+                  <div class="d-flex flex-column flex-sm-row gap-2">
+                    <!-- View Details Button -->
+                    <button
+                      class="btn btn-link p-0 text-decoration-none btn-sm"
+                      @click="viewOrderDetails(order.order_id)"
+                    >
+                      View
+                    </button>
+
+                    <!-- "Accept" button if isNew -->
+                    <button
+                      v-if="order.isNew"
+                      class="btn btn-success btn-sm"
+                      @click="acceptNewOrder(order)"
+                    >
+                      Accept
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
       <div v-else>
-        <p>No orders found.</p>
+        <p class="text-center">No orders found.</p>
       </div>
 
       <!-- Error Handling -->
@@ -102,9 +108,10 @@ import { useAuthStore } from '../store/auth';
 import { mapState } from 'pinia';
 
 let eventSource = null; // SSE connection
-let beepAudio = null;   // Audio element used for beeping
+let beepAudio = null;   // Audio element for beeping
 
 export default {
+  name: 'VendorDashboard',
   data() {
     return {
       orders: [],
@@ -112,7 +119,7 @@ export default {
       error: null,
       statuses: ['Created', 'Preparing', 'Delivering', 'Out of Location', 'Delivered'],
       selectedStatus: {},
-      beeping: false, // track if beep is currently playing in a loop
+      beeping: false, // track if beep is looping
     };
   },
   computed: {
@@ -126,21 +133,20 @@ export default {
   },
   async created() {
     if (!this.isLoggedIn) {
-      this.$router.push('/vendor/login'); // Redirect to login page if not logged in
+      this.$router.push('/vendor/login');
       return;
     }
 
     await this.fetchOrders();
-    // Start listening for SSE if user is logged in
     this.initSSEConnection();
   },
   beforeUnmount() {
-    // Close SSE connection
+    // Close SSE
     if (eventSource) {
       eventSource.close();
       eventSource = null;
     }
-    // Stop any ongoing beep
+    // Stop beep if playing
     this.stopBeep();
   },
   methods: {
@@ -153,8 +159,7 @@ export default {
         }
         const response = await axios.get(url);
         this.orders = response.data;
-
-        // Initialize selected status for each order
+        // Initialize status selections
         this.orders.forEach((o) => {
           this.selectedStatus[o.order_id] = o.status;
         });
@@ -188,16 +193,14 @@ export default {
       this.$router.push('/vendor/login');
     },
 
-    // --------------------
-    // SSE + Audio Methods
-    // --------------------
+    // SSE + Audio
     initSSEConnection() {
       eventSource = new EventSource('http://192.168.0.145:3000/api/vendor/orders/stream');
       eventSource.addEventListener('new_order', (event) => {
         const newOrder = JSON.parse(event.data);
         console.log('New order event:', newOrder);
 
-        // Mark order as new
+        // Mark as new
         const orderToAdd = {
           ...newOrder,
           isNew: true,
@@ -205,7 +208,7 @@ export default {
         this.orders.unshift(orderToAdd);
         this.selectedStatus[newOrder.order_id] = newOrder.status;
 
-        // If we're not already beeping, start beep
+        // If beep not playing, start beep
         if (!this.beeping) {
           this.startBeep();
         }
@@ -215,20 +218,14 @@ export default {
         console.error('SSE connection error:', err);
       };
     },
-
-    // Start looping the beep sound
     startBeep() {
       this.beeping = true;
       beepAudio = new Audio('/sounds/beep.mp3');
       beepAudio.loop = true;
-      beepAudio
-        .play()
-        .catch((err) => {
-          console.error('Audio playback failed:', err);
-        });
+      beepAudio.play().catch((err) => {
+        console.error('Audio playback failed:', err);
+      });
     },
-
-    // Stop beep if it's playing
     stopBeep() {
       if (beepAudio) {
         beepAudio.pause();
@@ -237,28 +234,32 @@ export default {
       }
       this.beeping = false;
     },
-
     acceptNewOrder(order) {
       // Mark the order as no longer new
       order.isNew = false;
 
-      // Check if ANY order is still new
+      // If no orders remain new, stop beep
       const anyStillNew = this.orders.some((o) => o.isNew);
       if (!anyStillNew) {
-        // If none are new, stop beep
         this.stopBeep();
       }
-
-      // Optionally update the order status or do something else
-      // For example, we might set the status to "Preparing" on acceptance
-      // this.selectedStatus[order.order_id] = 'Preparing';
-      // this.updateOrderStatus(order.order_id);
     },
   },
 };
 </script>
 
 <style scoped>
+/* Slight margin for small screens */
+.container-fluid {
+  padding-left: 0.75rem;
+  padding-right: 0.75rem;
+}
+
+/* Make sure the table looks good on small devices */
+.table-sm td, .table-sm th {
+  padding: 0.5rem;
+}
+
 /* Force a visible highlight for new orders */
 .bg-info.text-white {
   background-color: #17a2b8 !important;
