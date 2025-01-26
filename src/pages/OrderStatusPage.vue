@@ -1,4 +1,3 @@
-<!-- src/pages/OrderStatusPage.vue -->
 <template>
     <div class="container mt-4">
       <h2>Order Status</h2>
@@ -13,8 +12,8 @@
         <hr />
         <h5>Items:</h5>
         <ul>
-          <li v-for="item in order.items" :key="item.order_item_id">
-            {{ item.menu_id }} - Qty: {{ item.quantity }} - ${{ item.price }}
+          <li v-for="item in enrichedItems" :key="item.order_item_id">
+            <strong>{{ item.menu_name }}</strong> - Qty: {{ item.quantity }} - ${{ item.price }}
           </li>
         </ul>
       </div>
@@ -28,6 +27,7 @@
     data() {
       return {
         order: null,
+        enrichedItems: [], // Store items with menu names
         deliverySlotTime: null, // Store the delivery slot time
         loading: false,
         error: null,
@@ -48,12 +48,34 @@
           );
           this.deliverySlotTime = slotResponse.data.time; // Set the slot time
         }
+  
+        // Fetch menu names for all items
+        await this.fetchMenuNames();
       } catch (err) {
         this.error = 'Order not found or server error.';
         console.error(err);
       } finally {
         this.loading = false;
       }
+    },
+    methods: {
+      async fetchMenuNames() {
+        try {
+          const itemsWithNames = await Promise.all(
+            this.order.items.map(async (item) => {
+              const menuResponse = await axios.get(`/api/menus/${item.menu_id}`);
+              return {
+                ...item,
+                menu_name: menuResponse.data.name, // Add menu name to the item
+              };
+            })
+          );
+          this.enrichedItems = itemsWithNames;
+        } catch (err) {
+          console.error('Failed to fetch menu names:', err);
+          this.error = 'Failed to load product details.';
+        }
+      },
     },
   };
   </script>
