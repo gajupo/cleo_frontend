@@ -78,7 +78,9 @@
         </select>
       </div>
   
-      <button class="btn btn-primary" @click="placeOrder">Place Order</button>
+      <button class="btn btn-primary me-3" @click="placeOrder">Place Order</button>
+      <!-- clear order button -->
+      <button class="btn btn-danger" @click="clearCart">Clear Order</button>
   
       <!-- Loading state and error messages -->
       <div v-if="loading" class="mt-3">
@@ -176,6 +178,9 @@
         } finally {
           this.loading = false;
         }
+      },
+      clearCart() {
+        useCartStore().clearCart();
       },
     },
     mounted() {

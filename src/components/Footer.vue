@@ -1,7 +1,7 @@
 <template>
     <footer class="bg-light text-center text-lg-start mt-4">
       <div class="text-center p-3" style="background-color: rgba(0, 0, 0, 0.05);">
-        © {{ currentYear }} FoodBooking. All rights reserved.
+        © {{ currentYear }} Doña Cleo. Todos los derechos reservados.
         <!-- Add social icons or links below if needed -->
         <!-- 
         <a href="#" class="ms-3 text-dark">

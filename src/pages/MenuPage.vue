@@ -1,6 +1,17 @@
 <template>
     <div class="container mt-4">
-      <h2>Our Menus</h2>
+      <!-- "Go to Order" Button -->
+      <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>Our Menus</h2>
+        <button 
+          v-if="cartItemCount > 0" 
+          @click="goToOrder" 
+          class="btn btn-warning"
+        >
+          Ver Orden <span class="badge badge-info">{{ cartItemCount }} </span>
+        </button>
+      </div>
+  
       <div class="row">
         <div 
           v-for="menu in menus" 
@@ -59,10 +70,12 @@
         quantities: {},
         loading: false,
         error: null,
+        cartItemCount: 0 // Initialize cart item count
       };
     },
     async created() {
       this.fetchMenus();
+      this.updateCartCount(); // Ensure cart count updates on page load
     },
     methods: {
       async fetchMenus() {
@@ -91,11 +104,20 @@
           price: menu.price,
           quantity,
         });
+        this.updateCartCount(); // Update cart item count
       },
       isItemInCart(menuId) {
         const cartStore = useCartStore();
         return cartStore.items.some(item => item.menu_id === menuId);
       },
+      updateCartCount() {
+        const cartStore = useCartStore();
+        this.cartItemCount = cartStore.items.length;
+      },
+      goToOrder() {
+        // Logic to navigate to the order page
+        this.$router.push('/order-details');
+      }
     },
   };
   </script>

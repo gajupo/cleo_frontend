@@ -9,6 +9,7 @@
         <p><strong>Total:</strong> ${{ order.total_amount }}</p>
         <p><strong>Status:</strong> {{ order.status }}</p>
         <p><strong>Location:</strong> {{ order.delivery_location }}</p>
+        <p><strong>Delivery Time Slot:</strong> {{ deliverySlotTime }}</p>
         <hr />
         <h5>Items:</h5>
         <ul>
@@ -27,6 +28,7 @@
     data() {
       return {
         order: null,
+        deliverySlotTime: null, // Store the delivery slot time
         loading: false,
         error: null,
       };
@@ -35,8 +37,17 @@
       const { orderId } = this.$route.params;
       this.loading = true;
       try {
+        // Fetch order details
         const response = await axios.get(`/api/orders/${orderId}`);
         this.order = response.data;
+  
+        // Fetch delivery slot time if delivery_time_slot_id is present
+        if (this.order.delivery_time_slot_id) {
+          const slotResponse = await axios.get(
+            `/api/delivery-slots/${this.order.delivery_time_slot_id}`
+          );
+          this.deliverySlotTime = slotResponse.data.time; // Set the slot time
+        }
       } catch (err) {
         this.error = 'Order not found or server error.';
         console.error(err);
