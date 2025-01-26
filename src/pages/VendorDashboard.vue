@@ -16,9 +16,9 @@
 
       <!-- Status filter buttons -->
       <div class="mb-3">
-        <button 
-          v-for="s in statuses" 
-          :key="s" 
+        <button
+          v-for="s in statuses"
+          :key="s"
           class="btn btn-outline-primary me-2"
           @click="filterOrders(s)"
         >
@@ -35,30 +35,47 @@
             <th>Status</th>
             <th>Total</th>
             <th>Update Status</th>
-            <th>Details</th>
+            <th>Actions</th>
           </tr>
         </thead>
         <tbody>
-          <tr v-for="order in orders" :key="order.order_id">
+          <!-- Highlight row if isNew == true -->
+          <tr
+            v-for="order in orders"
+            :key="order.order_id"
+            :class="{'bg-info text-white': order.isNew}"
+          >
             <td>{{ order.order_id }}</td>
             <td>{{ order.status }}</td>
             <td>${{ order.total_amount }}</td>
             <td>
-              <select 
-                class="form-select" 
-                v-model="selectedStatus[order.order_id]" 
+              <select
+                class="form-select"
+                v-model="selectedStatus[order.order_id]"
                 @change="updateOrderStatus(order.order_id)"
               >
                 <option v-for="opt in statuses" :key="opt">{{ opt }}</option>
               </select>
             </td>
             <td>
-              <button 
-                class="btn btn-link" 
-                @click="viewOrderDetails(order.order_id)"
-              >
-                View Details
-              </button>
+              <div class="d-flex align-items-center">
+                <!-- View Details Button -->
+                <button
+                  class="btn btn-link me-2"
+                  @click="viewOrderDetails(order.order_id)"
+                >
+                  View Details
+                </button>
+
+                <!-- Show "Accept" button only if isNew -->
+                <button
+                  v-if="order.isNew"
+                  class="btn btn-success"
+                  @click="acceptNewOrder(order)"
+                >
+                  Accept
+                </button>
+              </div>
             </td>
           </tr>
         </tbody>
@@ -84,7 +101,8 @@ import axios from 'axios';
 import { useAuthStore } from '../store/auth';
 import { mapState } from 'pinia';
 
-let eventSource = null; // Keep a reference to the SSE connection
+let eventSource = null; // SSE connection
+let beepAudio = null;   // Audio element used for beeping
 
 export default {
   data() {
@@ -94,6 +112,7 @@ export default {
       error: null,
       statuses: ['Created', 'Preparing', 'Delivering', 'Out of Location', 'Delivered'],
       selectedStatus: {},
+      beeping: false, // track if beep is currently playing in a loop
     };
   },
   computed: {
@@ -112,17 +131,17 @@ export default {
     }
 
     await this.fetchOrders();
-
-    // ============= SSE SETUP =============
-    // Open a connection to SSE only if the user is logged in
+    // Start listening for SSE if user is logged in
     this.initSSEConnection();
   },
   beforeUnmount() {
-    // Close SSE connection when leaving this page
+    // Close SSE connection
     if (eventSource) {
       eventSource.close();
       eventSource = null;
     }
+    // Stop any ongoing beep
+    this.stopBeep();
   },
   methods: {
     async fetchOrders(status = '') {
@@ -136,7 +155,7 @@ export default {
         this.orders = response.data;
 
         // Initialize selected status for each order
-        this.orders.forEach(o => {
+        this.orders.forEach((o) => {
           this.selectedStatus[o.order_id] = o.status;
         });
       } catch (err) {
@@ -161,43 +180,89 @@ export default {
       }
     },
     viewOrderDetails(orderId) {
-      this.$router.push(`/order-status/${orderId}`); // Redirect to Order Details page
+      this.$router.push(`/order-status/${orderId}`);
     },
     logout() {
       const authStore = useAuthStore();
-      authStore.logoutVendor(); // Clear token and vendor data
-      this.$router.push('/vendor/login'); // Redirect to login
+      authStore.logoutVendor();
+      this.$router.push('/vendor/login');
     },
 
-    // ============= SSE METHODS =============
+    // --------------------
+    // SSE + Audio Methods
+    // --------------------
     initSSEConnection() {
-      // Create an EventSource to /api/vendor/orders/stream
-      eventSource = new EventSource('http://localhost:3000/api/vendor/orders/stream');
-
-      // Listen for "new_order" events
+      eventSource = new EventSource('http://192.168.0.145:3000/api/vendor/orders/stream');
       eventSource.addEventListener('new_order', (event) => {
-        // parse the data
         const newOrder = JSON.parse(event.data);
         console.log('New order event:', newOrder);
 
-        // Option 1: Just add to the front
-        this.orders.unshift({
-          order_id: newOrder.order_id,
-          total_amount: newOrder.total_amount,
-          status: newOrder.status,
-          created_at: newOrder.created_at,
-          // Include other fields as needed
-        });
-        // Also set default status selection
+        // Mark order as new
+        const orderToAdd = {
+          ...newOrder,
+          isNew: true,
+        };
+        this.orders.unshift(orderToAdd);
         this.selectedStatus[newOrder.order_id] = newOrder.status;
+
+        // If we're not already beeping, start beep
+        if (!this.beeping) {
+          this.startBeep();
+        }
       });
 
-      // Optional: handle error events
       eventSource.onerror = (err) => {
         console.error('SSE connection error:', err);
-        // If needed, close and retry logic could go here
       };
+    },
+
+    // Start looping the beep sound
+    startBeep() {
+      this.beeping = true;
+      beepAudio = new Audio('/sounds/beep.mp3');
+      beepAudio.loop = true;
+      beepAudio
+        .play()
+        .catch((err) => {
+          console.error('Audio playback failed:', err);
+        });
+    },
+
+    // Stop beep if it's playing
+    stopBeep() {
+      if (beepAudio) {
+        beepAudio.pause();
+        beepAudio.currentTime = 0;
+        beepAudio = null;
+      }
+      this.beeping = false;
+    },
+
+    acceptNewOrder(order) {
+      // Mark the order as no longer new
+      order.isNew = false;
+
+      // Check if ANY order is still new
+      const anyStillNew = this.orders.some((o) => o.isNew);
+      if (!anyStillNew) {
+        // If none are new, stop beep
+        this.stopBeep();
+      }
+
+      // Optionally update the order status or do something else
+      // For example, we might set the status to "Preparing" on acceptance
+      // this.selectedStatus[order.order_id] = 'Preparing';
+      // this.updateOrderStatus(order.order_id);
     },
   },
 };
 </script>
+
+<style scoped>
+/* Force a visible highlight for new orders */
+.bg-info.text-white {
+  background-color: #17a2b8 !important;
+  color: white !important;
+  transition: background-color 0.5s;
+}
+</style>
